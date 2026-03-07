@@ -1,0 +1,238 @@
+// ═══════════════════════════════════════════════════════════════
+// EMA Triple Signal Indicator
+// Based on BAJFINANCE chart analysis — EMA 5 / 13 / 26
+//
+// SIGNALS:
+//   🟢 BUY  — EMA5 crosses above EMA13 AND close > EMA26
+//   🔴 SELL — EMA5 crosses below EMA13
+//   💎 STRONG BUY  — EMA5 > EMA13 > EMA26 + volume surge
+//   🔔 ALIGNMENT   — All 3 EMAs bullish aligned (background glow)
+// ═══════════════════════════════════════════════════════════════
+
+//@version=5
+indicator(
+  title     = "EMA Triple Signal [5-13-26]",
+  shorttitle= "EMA·Signal",
+  overlay   = true,
+  max_labels_count = 500
+)
+
+// ─────────────────────────────────────────────
+// INPUTS
+// ─────────────────────────────────────────────
+grpEMA   = "EMA Settings"
+len1     = input.int(5,  minval=1, title="EMA 1 Length", group=grpEMA)
+len2     = input.int(13, minval=1, title="EMA 2 Length", group=grpEMA)
+len3     = input.int(26, minval=1, title="EMA 3 Length", group=grpEMA)
+src      = input.source(close, title="Source",           group=grpEMA)
+
+grpSig   = "Signal Settings"
+showBuy  = input.bool(true,  title="Show BUY Signals",        group=grpSig)
+showSell = input.bool(true,  title="Show SELL Signals",       group=grpSig)
+showStrong=input.bool(true,  title="Show STRONG BUY (Volume)",group=grpSig)
+volMult  = input.float(1.5,  title="Volume Multiplier (Strong BUY)", step=0.1, group=grpSig)
+
+grpVis   = "Visual Settings"
+showBg   = input.bool(true,  title="Show Background Zone",    group=grpVis)
+showAlerts=input.bool(true,  title="Show Alert Labels",       group=grpVis)
+lineWidth= input.int(2, minval=1, maxval=4, title="Line Width",group=grpVis)
+
+// ─────────────────────────────────────────────
+// EMA CALCULATIONS
+// ─────────────────────────────────────────────
+ema5  = ta.ema(src, len1)
+ema13 = ta.ema(src, len2)
+ema26 = ta.ema(src, len3)
+
+// ─────────────────────────────────────────────
+// SIGNAL CONDITIONS
+// ─────────────────────────────────────────────
+
+// EMA5 crosses ABOVE EMA13cription
+bullCross   = ta.crossover(ema5, ema13)
+// EMA5 crosses BELOW EMA13
+bearCross   = ta.crossunder(ema5, ema13)
+
+// Full bullish alignment: EMA5 > EMA13 > EMA26
+bullAlign   = ema5 > ema13 and ema13 > ema26
+// Full bearish alignment: EMA5 < EMA13 < EMA26
+bearAlign   = ema5 < ema13 and ema13 < ema26
+
+// Volume surge check (current volume > N× 20-bar average)
+avgVol      = ta.sma(volume, 20)
+volSurge    = volume > (avgVol * volMult)
+
+// ── PRIMARY BUY: crossover + price above EMA26
+buySignal   = bullCross and close > ema26
+
+// ── STRONG BUY: crossover + price > EMA26 + volume surge
+strongBuy   = bullCross and close > ema26 and volSurge
+
+// ── SELL: EMA5 crosses below EMA13
+sellSignal  = bearCross
+
+// ── ZONE BUY: price squeezed between EMAs (consolidation near EMA13)
+// Good re-entry zone during uptrend
+zoneBuy     = bullAlign and close > ema13 and close < ema5 * 1.005
+
+// ─────────────────────────────────────────────
+// PLOT EMAs
+// ─────────────────────────────────────────────
+plot(ema5,  title="EMA 5",  color=color.new(color.green,  0), linewidth=lineWidth)
+plot(ema13, title="EMA 13", color=color.new(color.yellow, 0), linewidth=lineWidth)
+plot(ema26, title="EMA 26", color=color.new(color.purple, 0), linewidth=lineWidth)
+
+// ─────────────────────────────────────────────
+// BACKGROUND ZONES
+// ─────────────────────────────────────────────
+bullBg = showBg and bullAlign
+bearBg = showBg and bearAlign
+
+bgcolor(
+  bullBg ? color.new(color.green, 93) :
+  bearBg ? color.new(color.red,   93) : na,
+  title = "Background Zone"
+)
+
+// ─────────────────────────────────────────────
+// EMA RIBBON (fill between EMA5 and EMA13)
+// ─────────────────────────────────────────────
+p5  = plot(ema5,  display=display.none)
+p13 = plot(ema13, display=display.none)
+
+fill(
+  p5, p13,
+  color = ema5 > ema13
+         ? color.new(color.green, 85)
+         : color.new(color.red,   85),
+  title = "EMA Ribbon"
+)
+
+// ─────────────────────────────────────────────
+// BUY / SELL SIGNALS — SHAPES
+// ─────────────────────────────────────────────
+
+// Regular BUY arrow
+plotshape(
+  showBuy and buySignal and not strongBuy,
+  title     = "BUY Signal",
+  style     = shape.triangleup,
+  location  = location.belowbar,
+  color     = color.new(color.lime, 0),
+  size      = size.normal,
+  text      = "BUY",
+  textcolor = color.white
+)
+
+// STRONG BUY — larger, with volume confirmationcription
+plotshape(
+  showStrong and strongBuy,
+  title     = "STRONG BUY",
+  style     = shape.triangleup,
+  location  = location.belowbar,
+  color     = color.new(color.aqua, 0),
+  size      = size.large,
+  text      = "💎 STRONG",
+  textcolor = color.white
+)
+
+// SELL arrow
+plotshape(
+  showSell and sellSignal,
+  title     = "SELL Signal",
+  style     = shape.triangledown,
+  location  = location.abovebar,
+  color     = color.new(color.red, 0),
+  size      = size.normal,
+  text      = "SELL",
+  textcolor = color.white
+)
+
+// ─────────────────────────────────────────────
+// ZONE RE-ENTRY DOTS (pullback to EMA13 in uptrend)
+// ─────────────────────────────────────────────
+plotshape(
+  zoneBuy,
+  title     = "Zone Re-Entry",
+  style     = shape.circle,
+  location  = location.belowbar,
+  color     = color.new(color.orange, 20),
+  size      = size.tiny
+)
+
+// ─────────────────────────────────────────────
+// ALERT LABELS (show price at signal)
+// ─────────────────────────────────────────────
+if showAlerts and buySignal
+    lbl = label.new(
+      bar_index, low * 0.998,
+      text      = "▲ " + str.tostring(close, "#.##"),
+      style     = label.style_label_up,
+      color     = color.new(color.green, 10),
+      textcolor = color.white,
+      size      = size.small
+    )
+
+if showAlerts and sellSignal
+    lbl = label.new(
+      bar_index, high * 1.002,
+      text      = "▼ " + str.tostring(close, "#.##"),
+      style     = label.style_label_down,
+      color     = color.new(color.red, 10),
+      textcolor = color.white,
+      size      = size.small
+    )
+
+// ─────────────────────────────────────────────
+// INFO TABLE (top-right corner)
+// ─────────────────────────────────────────────
+var table infoTbl = table.new(
+  position.top_right, 2, 6,
+  bgcolor      = color.new(color.black, 60),
+  border_width = 1,
+  border_color = color.new(color.gray, 60)
+)
+
+if barstate.islast
+    // Headers
+    table.cell(infoTbl, 0, 0, "Indicator",  text_color=color.gray,  text_size=size.small)
+    table.cell(infoTbl, 1, 0, "Value",      text_color=color.gray,  text_size=size.small)
+
+    // EMA values
+    table.cell(infoTbl, 0, 1, "EMA " + str.tostring(len1),
+               text_color=color.green,  text_size=size.small)
+    table.cell(infoTbl, 1, 1, str.tostring(ema5, "#.##"),
+               text_color=color.green,  text_size=size.small)
+
+    table.cell(infoTbl, 0, 2, "EMA " + str.tostring(len2),
+               text_color=color.yellow, text_size=size.small)
+    table.cell(infoTbl, 1, 2, str.tostring(ema13, "#.##"),
+               text_color=color.yellow, text_size=size.small)
+
+    table.cell(infoTbl, 0, 3, "EMA " + str.tostring(len3),
+               text_color=color.purple, text_size=size.small)
+    table.cell(infoTbl, 1, 3, str.tostring(ema26, "#.##"),
+               text_color=color.purple, text_size=size.small)
+
+    // Trend
+    trendColor = bullAlign ? color.lime : bearAlign ? color.red : color.orange
+    trendText  = bullAlign ? "🟢 BULLISH" : bearAlign ? "🔴 BEARISH" : "🟡 NEUTRAL"
+    table.cell(infoTbl, 0, 4, "Trend",       text_color=color.gray, text_size=size.small)
+    table.cell(infoTbl, 1, 4, trendText,     text_color=trendColor, text_size=size.small)
+
+    // Signal
+    sigText  = buySignal  ? "▲ BUY"  :
+               sellSignal ? "▼ SELL" : "—"
+    sigColor = buySignal  ? color.lime :
+               sellSignal ? color.red  : color.gray
+    table.cell(infoTbl, 0, 5, "Signal",      text_color=color.gray, text_size=size.small)
+    table.cell(infoTbl, 1, 5, sigText,       text_color=sigColor,   text_size=size.small)
+
+// ─────────────────────────────────────────────
+// ALERTS
+// ─────────────────────────────────────────────
+alertcondition(buySignal,   title="BUY Signal",        message="🟢 EMA BUY Signal — EMA5 crossed above EMA13, price above EMA26")
+alertcondition(strongBuy,   title="STRONG BUY Signal", message="💎 STRONG BUY — EMA crossover + Volume surge confirmed!")
+alertcondition(sellSignal,  title="SELL Signal",       message="🔴 EMA SELL Signal — EMA5 crossed below EMA13")
+alertcondition(bullAlign,   title="Bullish Alignment", message="📈 Full Bullish Alignment: EMA5 > EMA13 > EMA26")
+alertcondition(bearAlign,   title="Bearish Alignment", message="📉 Full Bearish Alignment: EMA5 < EMA13 < EMA26")

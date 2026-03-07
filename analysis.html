@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script>
+    // ── AUTH GUARD ──
+    (function(){
+      const ok = sessionStorage.getItem("ema_auth_session") || localStorage.getItem("ema_auth_session");
+      if (ok !== "1") { window.location.replace("login.html"); }
+    })();
+  </script>
+  <title>Stock Analysis | EMA Strong Bullish</title>
+  <meta name="description" content="Deep EMA 5/13/26 analysis — crossover dates, key levels, trade setup."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── page layout ── */
+    .page-wrap   { max-width:1300px; margin:0 auto; padding:32px 24px 60px; }
+    .back-btn    { display:inline-flex; align-items:center; gap:8px; color:var(--text-secondary);
+                   text-decoration:none; font-size:14px; font-weight:500; margin-bottom:28px;
+                   padding:8px 16px; border-radius:8px; border:1px solid var(--border);
+                   background:var(--bg-card); transition:all .2s; }
+    .back-btn:hover { color:var(--text-primary); border-color:var(--green); }
+
+    /* ── stock header ── */
+    .stock-hdr   { display:flex; align-items:flex-start; justify-content:space-between;
+                   flex-wrap:wrap; gap:20px; margin-bottom:32px; }
+    .stock-ticker{ font-family:var(--mono); font-size:44px; font-weight:800;
+                   color:var(--green); letter-spacing:-2px; }
+    .stock-full  { font-size:16px; color:var(--text-secondary); margin-top:4px; }
+    .stock-tags  { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .stock-tag   { padding:4px 12px; border-radius:100px; font-size:12px; font-weight:700;
+                   border:1px solid; }
+    .tag-bull    { background:rgba(0,212,170,.1); border-color:rgba(0,212,170,.3); color:var(--green); }
+    .tag-sector  { background:rgba(255,255,255,.05); border-color:var(--border); color:var(--text-secondary); }
+    .tag-tf      { background:rgba(168,85,247,.1); border-color:rgba(168,85,247,.3); color:var(--purple); }
+
+    .price-block { text-align:right; }
+    .price-ltp   { font-family:var(--mono); font-size:40px; font-weight:700; color:var(--text-primary); }
+    .price-chg   { font-family:var(--mono); font-size:18px; font-weight:600; margin-top:4px; }
+    .price-chg.pos { color:var(--green); } .price-chg.neg { color:var(--red); }
+    .price-note  { font-size:11px; color:var(--text-muted); margin-top:6px; }
+
+    /* ── crossover highlight bar ── */
+    .cross-bar   { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+    @media(max-width:600px){ .cross-bar { grid-template-columns:1fr; } }
+    .cross-card  { padding:20px 24px; border-radius:var(--radius-md); display:flex;
+                   align-items:center; gap:18px; }
+    .cross-card.c13 { background:rgba(0,212,170,.07); border:1px solid rgba(0,212,170,.3); }
+    .cross-card.c26 { background:rgba(168,85,247,.07); border:1px solid rgba(168,85,247,.3); }
+    .cross-icon  { font-size:32px; }
+    .cross-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+                   color:var(--text-muted); margin-bottom:4px; }
+    .cross-date-big { font-family:var(--mono); font-size:22px; font-weight:800; }
+    .cross-date-big.c13 { color:var(--green); }
+    .cross-date-big.c26 { color:var(--purple); }
+    .cross-meta  { font-size:12px; color:var(--text-muted); margin-top:3px; font-family:var(--mono); }
+
+    /* ── tab nav ── */
+    .tab-nav  { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:24px; }
+    .tab-btn  { padding:10px 22px; border:none; background:transparent; color:var(--text-secondary);
+                font-family:var(--font); font-size:14px; font-weight:500; cursor:pointer;
+                border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .2s; }
+    .tab-btn.active { color:var(--green); border-bottom-color:var(--green); }
+    .tab-btn:hover  { color:var(--text-primary); }
+    .tab-panel { display:none; } .tab-panel.active { display:block; }
+
+    /* ── signal grid ── */
+    .sig-grid  { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:22px; }
+    .sig-box   { padding:18px; border-radius:var(--radius-md); border:1px solid var(--border);
+                 background:var(--bg-card); text-align:center; }
+    .sig-ico   { font-size:26px; margin-bottom:8px; }
+    .sig-lbl   { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px;
+                 color:var(--text-muted); margin-bottom:6px; }
+    .sig-val   { font-size:17px; font-weight:800; font-family:var(--mono); }
+
+    /* ── canvas chart ── */
+    .canvas-box { background:rgba(255,255,255,.02); border:1px solid var(--border);
+                  border-radius:var(--radius-md); overflow:hidden; }
+    canvas      { display:block; width:100%; }
+    .chart-legend { display:flex; gap:18px; flex-wrap:wrap; margin:0 0 12px; }
+    .leg-item   { display:flex; align-items:center; gap:7px; font-size:12px; }
+    .leg-line   { width:26px; height:3px; border-radius:2px; }
+
+    /* ── insights ── */
+    .insights   { display:flex; flex-direction:column; gap:12px; }
+    .insight    { display:flex; gap:12px; align-items:flex-start; padding:14px;
+                  border-radius:var(--radius-sm); background:rgba(255,255,255,.03);
+                  border:1px solid var(--border); }
+    .ins-ico    { font-size:18px; flex-shrink:0; }
+    .ins-txt    { font-size:13px; color:var(--text-secondary); line-height:1.65; }
+    .ins-txt strong { color:var(--text-primary); }
+
+    /* ── levels table ── */
+    .lvl-tbl    { width:100%; border-collapse:collapse; font-size:14px; }
+    .lvl-tbl th { padding:12px 14px; text-align:left; font-size:11px; font-weight:600;
+                  text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);
+                  border-bottom:1px solid var(--border); }
+    .lvl-tbl td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.04); }
+    .lvl-tbl tr:last-child td { border:none; }
+    .lvl-pill   { display:inline-block; padding:2px 10px; border-radius:100px;
+                  font-size:11px; font-weight:700; }
+    .lvl-sup    { background:rgba(0,212,170,.12); color:var(--green); }
+    .lvl-res    { background:rgba(255,77,109,.12); color:var(--red); }
+    .lvl-cur    { background:rgba(246,201,14,.12); color:var(--yellow); }
+
+    /* ── trade setup ── */
+    .setup-grid { display:flex; flex-direction:column; gap:10px; }
+    .setup-row  { display:flex; justify-content:space-between; align-items:center;
+                  padding:12px 16px; border-radius:var(--radius-sm); }
+    .setup-row.entry { background:rgba(0,212,170,.07); border:1px solid rgba(0,212,170,.2); }
+    .setup-row.sl    { background:rgba(255,77,109,.07); border:1px solid rgba(255,77,109,.2); }
+    .setup-row.t1    { background:rgba(168,85,247,.07); border:1px solid rgba(168,85,247,.2); }
+    .setup-row.t2    { background:rgba(246,201,14,.07); border:1px solid rgba(246,201,14,.2); }
+    .setup-row.rr    { background:rgba(59,130,246,.07); border:1px solid rgba(59,130,246,.2); }
+    .setup-lbl  { font-size:13px; color:var(--text-secondary); }
+    .setup-val  { font-family:var(--mono); font-size:15px; font-weight:800; }
+
+    /* ── tv link ── */
+    .tv-btn { display:inline-flex; align-items:center; gap:8px; padding:12px 24px;
+              border-radius:var(--radius-sm); background:rgba(0,212,170,.1);
+              border:1px solid rgba(0,212,170,.3); color:var(--green);
+              text-decoration:none; font-weight:700; font-size:14px;
+              transition:all .2s; margin-top:20px; }
+    .tv-btn:hover { background:rgba(0,212,170,.2); }
+
+    /* ── loading overlay ── */
+    .page-loading { display:flex; flex-direction:column; align-items:center;
+                    justify-content:center; min-height:60vh; gap:24px; }
+    .spin  { width:48px; height:48px; border:3px solid var(--border);
+              border-top-color:var(--green); border-radius:50%;
+              animation:spin360 .8s linear infinite; }
+    @keyframes spin360 { to { transform:rotate(360deg); } }
+
+    .layout-2col { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+    @media(max-width:700px){ .layout-2col { grid-template-columns:1fr; } }
+
+    /* ── news tab ── */
+    .news-list  { display:flex; flex-direction:column; gap:12px; }
+    .news-card  { display:flex; flex-direction:column; gap:8px; padding:16px 18px;
+                  border-radius:var(--radius-md); border:1px solid var(--border);
+                  background:var(--bg-card); text-decoration:none; transition:border-color .2s; }
+    .news-card:hover { border-color:rgba(0,212,170,.4); }
+    .news-card-top  { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .news-title { font-size:14px; font-weight:600; color:var(--text-primary); line-height:1.55; flex:1; }
+    .news-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px; white-space:nowrap; flex-shrink:0; }
+    .news-pos   { background:rgba(0,212,170,.15); color:#00d4aa; border:1px solid rgba(0,212,170,.3); }
+    .news-neg   { background:rgba(255,77,109,.15); color:#ff4d6d; border:1px solid rgba(255,77,109,.3); }
+    .news-neu   { background:rgba(255,255,255,.07); color:#8892a4; border:1px solid rgba(255,255,255,.12); }
+    .news-meta  { font-size:11px; color:var(--text-muted); }
+    .news-empty { text-align:center; padding:48px 24px; color:var(--text-muted); font-size:14px; }
+    .sent-summary { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    .sent-chip  { padding:4px 12px; border-radius:100px; font-size:12px; font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 17L9 11L13 15L21 7" stroke="url(#ga)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="ga" x1="3" y1="17" x2="21" y2="7" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00d4aa"/><stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient></defs>
+          </svg>
+        </div>
+        <span class="logo-text">EMA <span class="logo-accent">Screener</span></span>
+      </div>
+      <div class="header-meta">
+        <span class="last-updated" id="pageSymbol">Stock Analysis</span>
+        <div class="live-dot"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-wrap" id="pageWrap">
+    <!-- Loading -->
+    <div class="page-loading" id="pageLoading">
+      <div class="spin"></div>
+      <p style="font-size:15px; color:var(--text-secondary);" id="loadMsg">Fetching live data…</p>
+    </div>
+  </div>
+
+  <script>
+  "use strict";
+
+  // ── CONFIG (same as screener.js) ──
+  const CFG = {
+    cors:    "https://api.allorigins.win/raw?url=",
+    yBase:   "https://query1.finance.yahoo.com/v8/finance/chart/",
+    period:  "2y", interval:"1d", scanBars:30,
+  };
+
+  // ── URL PARAMS ──
+  const params = new URLSearchParams(window.location.search);
+
+  // ── Read selected stock: sessionStorage first (set by screener on click),
+  //    then fall back to URL ?sym= param
+  let _stored = null;
+  try {
+    const raw = sessionStorage.getItem("ema_selected_stock");
+    if (raw) {
+      _stored = JSON.parse(raw);
+      // Rehydrate date strings
+      if (_stored.cross13Date) _stored.cross13Date = new Date(_stored.cross13Date);
+      if (_stored.cross26Date) _stored.cross26Date = new Date(_stored.cross26Date);
+    }
+  } catch(e) { _stored = null; }
+
+  const rawSym = params.get("sym");
+  let SYM = null;
+
+  if (_stored && _stored.sym && _stored.sym !== "undefined" && _stored.sym !== "null") {
+    SYM = _stored.sym.trim();
+  } else if (rawSym && rawSym.trim() && rawSym !== "undefined" && rawSym !== "null") {
+    SYM = rawSym.trim();
+  }
+
+  // ── NO SYM: try to load from screener localStorage cache ──
+  if (!SYM) {
+    const CACHE_KEY = "ema_sb_cache_v3";
+    let cachedStocks = [];
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const payload = JSON.parse(raw);
+        cachedStocks = (payload.results || []).map(r => ({
+          ...r,
+          cross13Date: r.cross13Date ? new Date(r.cross13Date) : null,
+          cross26Date: r.cross26Date ? new Date(r.cross26Date) : null,
+        }));
+      }
+    } catch(e) { cachedStocks = []; }
+
+    if (cachedStocks.length === 0) {
+      document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,sans-serif;background:#060b14;color:#f0f6ff;flex-direction:column;gap:16px;padding:24px;text-align:center">
+          <div style="font-size:48px">⚠️</div>
+          <h2 style="color:#ff4d6d;font-size:22px;">No stock selected</h2>
+          <p style="color:#8892a4;max-width:400px">No recent scan found. Please run the screener first, then click a stock row.</p>
+          <a href="index.html" style="padding:10px 24px;border-radius:8px;background:linear-gradient(135deg,#00d4aa,#009d7f);color:#000;font-weight:700;text-decoration:none;">← Run Screener</a>
+        </div>`;
+      throw new Error("No sym and no cache — stopping");
+    }
+
+    // Show stock picker
+    const pickerHTML = `
+      <style>
+        .picker-wrap { display:flex;align-items:center;justify-content:center;min-height:100vh;
+          font-family:Inter,sans-serif;background:#060b14;color:#f0f6ff;
+          flex-direction:column;gap:24px;padding:24px; }
+        .picker-title { font-size:22px;font-weight:800;color:#f0f6ff; }
+        .picker-sub   { font-size:14px;color:#8892a4;margin-top:-12px; }
+        .picker-select { padding:12px 18px;border-radius:10px;border:1px solid rgba(0,212,170,.4);
+          background:#0d1520;color:#f0f6ff;font-size:15px;font-family:Inter,sans-serif;
+          min-width:320px;cursor:pointer;outline:none; }
+        .picker-select:focus { border-color:#00d4aa; }
+        .picker-btn { padding:12px 32px;border-radius:10px;
+          background:linear-gradient(135deg,#00d4aa,#009d7f);
+          border:none;color:#000;font-weight:800;font-size:15px;cursor:pointer;transition:opacity .2s; }
+        .picker-btn:hover { opacity:.85; }
+        .picker-back { font-size:13px;color:#8892a4;text-decoration:none; }
+        .picker-back:hover { color:#00d4aa; }
+        .picker-badge { padding:4px 14px;border-radius:100px;font-size:12px;font-weight:700;
+          background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.3);color:#00d4aa; }
+      </style>
+      <div class="picker-wrap">
+        <span class="picker-badge">📦 ${cachedStocks.length} stocks from last scan</span>
+        <div class="picker-title">📊 Select a Stock to Analyse</div>
+        <div class="picker-sub">Choose from your last screener results</div>
+        <select class="picker-select" id="stockPicker">
+          ${cachedStocks.map((s,i) => `<option value="${i}">${s.symbol} — ${s.name} (${s.sector})</option>`).join("")}
+        </select>
+        <button class="picker-btn" onclick="goAnalyse()">View Analysis →</button>
+        <a href="index.html" class="picker-back">← Back to Screener</a>
+      </div>`;
+
+    document.body.innerHTML = pickerHTML;
+
+    window.goAnalyse = function() {
+      const idx = +document.getElementById("stockPicker").value;
+      const s   = cachedStocks[idx];
+      const sym = (s.sym && s.sym !== "undefined") ? s.sym : (s.symbol + ".NS");
+      try {
+        sessionStorage.setItem("ema_selected_stock", JSON.stringify({
+          ...s,
+          cross13Date: s.cross13Date instanceof Date ? s.cross13Date.toISOString() : null,
+          cross26Date: s.cross26Date instanceof Date ? s.cross26Date.toISOString() : null,
+        }));
+      } catch(e) {}
+      window.location.href = "analysis.html?sym=" + encodeURIComponent(sym);
+    };
+
+    document.getElementById("stockPicker").addEventListener("keydown", e => {
+      if (e.key === "Enter") window.goAnalyse();
+    });
+
+    throw new Error("Showing stock picker — stopping main analysis boot");
+  }
+
+  // SYM is valid — use stored data or URL params for metadata
+  const NAME   = (_stored && _stored.name)   || params.get("name")   || SYM.replace(".NS","");
+  const SECTOR = (_stored && _stored.sector) || params.get("sector") || "—";
+  const SYMBOL = SYM.replace(/\.NS$/i, "");
+
+  // Pre-passed crossover data (shown instantly, overridden by live calc)
+  const urlCross = {
+    c13Date:  _stored?.cross13Date || (params.get("cross13")     ? new Date(params.get("cross13"))    : null),
+    c13Price: _stored?.cross13Price ?? (params.get("cross13price") ? +params.get("cross13price")       : null),
+    c13Days:  _stored?.cross13Days  ?? (params.get("cross13days") ? +params.get("cross13days")         : null),
+    c26Date:  _stored?.cross26Date || (params.get("cross26")     ? new Date(params.get("cross26"))    : null),
+    c26Price: _stored?.cross26Price ?? (params.get("cross26price") ? +params.get("cross26price")       : null),
+    c26Days:  _stored?.cross26Days  ?? (params.get("cross26days") ? +params.get("cross26days")         : null),
+  };
+
+  console.log(`📊 Analysis page for: ${SYM}`, urlCross);
+
+  // Set page title now that SYM is validated
+  document.title = `${SYMBOL} Analysis | EMA Strong Bullish`;
+  document.getElementById("pageSymbol").textContent = `${SYMBOL} · NSE · Daily`;
+
+
+  // ── HELPERS ──
+  function calcEMA(closes, len) {
+    if (closes.length < len) return [];
+    const a = 2/(len+1), e = new Array(closes.length).fill(null);
+    let s = 0; for(let i=0;i<len;i++) s+=closes[i]; e[len-1]=s/len;
+    for(let i=len;i<closes.length;i++) e[i]=a*closes[i]+(1-a)*e[i-1];
+    return e;
+  }
+  function computeEMAs(closes) {
+    const e5=calcEMA(closes,5), e13=calcEMA(closes,13), e26=calcEMA(closes,26);
+    return closes.map((_,i)=>({e5:e5[i]??null, e13:e13[i]??null, e26:e26[i]??null}));
+  }
+  function fmt(n) {
+    if(n==null) return "—";
+    return n>=1000 ? n.toLocaleString("en-IN",{maximumFractionDigits:0}) : n.toFixed(2);
+  }
+  function fmtDate(d) {
+    if(!d) return "—";
+    return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+  }
+  function fmtShort(d) {
+    if(!d) return "—";
+    return d.toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+  }
+
+  // ── FETCH ──
+  async function fetchData(sym) {
+    const url = `${CFG.yBase}${encodeURIComponent(sym)}?interval=${CFG.interval}&range=${CFG.period}`;
+    const res = await fetch(`${CFG.cors}${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(15000)});
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const d = await res.json();
+    const r = d?.chart?.result?.[0]; if(!r) throw new Error("No data");
+    const ts=r.timestamp||[], q=r.indicators?.quote?.[0]||{}, cl=q.close||[];
+    const hi=q.high||[], lo=q.low||[], op=q.open||[];
+    const meta=r.meta||{};
+    const valid=ts.map((t,i)=>({t,c:cl[i],h:hi[i],l:lo[i],o:op[i]}))
+                  .filter(d=>d.c!=null&&isFinite(d.c));
+    return {
+      price:  meta.regularMarketPrice??valid[valid.length-1]?.c??0,
+      prev:   valid[valid.length-2]?.c??valid[valid.length-1]?.c??0,
+      closes:     valid.map(d=>d.c),
+      highs:      valid.map(d=>d.h),
+      lows:       valid.map(d=>d.l),
+      opens:      valid.map(d=>d.o),
+      timestamps: valid.map(d=>d.t),
+    };
+  }
+
+  // ── FIND CROSSOVERS ──
+  function findCrossovers(emas, timestamps) {
+    const n=emas.length, startIdx=Math.max(1,n-CFG.scanBars);
+    const now=Date.now();
+    let c13Ts=null,c13Date=null,c13Price=null;
+    let c26Ts=null,c26Date=null,c26Price=null;
+    for(let i=startIdx;i<n;i++){
+      const p=emas[i-1],c=emas[i];
+      if(!p||!c) continue;
+      if(p.e5!==null&&p.e13!==null&&c.e5!==null&&c.e13!==null&&p.e5<=p.e13&&c.e5>c.e13){
+        c13Ts=timestamps[i]; c13Date=new Date(c13Ts*1000); c13Price=c.e5;
+      }
+      if(p.e5!==null&&p.e26!==null&&c.e5!==null&&c.e26!==null&&p.e5<=p.e26&&c.e5>c.e26){
+        c26Ts=timestamps[i]; c26Date=new Date(c26Ts*1000); c26Price=c.e5;
+      }
+    }
+    return {
+      c13Date,c13Price,c13Days:c13Ts?Math.floor((now-c13Ts*1000)/86400000):null,
+      c26Date,c26Price,c26Days:c26Ts?Math.floor((now-c26Ts*1000)/86400000):null,
+    };
+  }
+
+  // ── CHART DRAWING ──
+  function drawChart(canvasId, raw, emas) {
+    const canvas = document.getElementById(canvasId);
+    if(!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width  = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = parseInt(canvas.getAttribute("height")||360) * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const W=canvas.offsetWidth, H=parseInt(canvas.getAttribute("height")||360);
+
+    // last 60 candles for the chart view
+    const VIEW=60;
+    const start=Math.max(0, raw.closes.length-VIEW);
+    const closes=raw.closes.slice(start);
+    const highs =raw.highs.slice(start);
+    const lows  =raw.lows.slice(start);
+    const opens =raw.opens.slice(start);
+    const e5s   =emas.slice(start).map(e=>e.e5);
+    const e13s  =emas.slice(start).map(e=>e.e13);
+    const e26s  =emas.slice(start).map(e=>e.e26);
+    const ts    =raw.timestamps.slice(start);
+    const N     =closes.length;
+
+    const allVals=[...closes,...highs,...lows,...e5s,...e13s,...e26s].filter(v=>v!=null);
+    const minV=Math.min(...allVals)*0.995, maxV=Math.max(...allVals)*1.005;
+    const PAD={top:20,right:55,bottom:40,left:10};
+    const cw=W-PAD.left-PAD.right, ch=H-PAD.top-PAD.bottom;
+    const xP=i=>PAD.left+(i/(N-1))*cw;
+    const yP=v=>PAD.top+ch-((v-minV)/(maxV-minV))*ch;
+
+    ctx.clearRect(0,0,W,H);
+
+    // price grid
+    for(let i=0;i<=4;i++){
+      const y=PAD.top+(i/4)*ch, pv=maxV-(i/4)*(maxV-minV);
+      ctx.strokeStyle="rgba(255,255,255,.05)"; ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(PAD.left,y); ctx.lineTo(W-PAD.right,y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle="rgba(255,255,255,.3)"; ctx.font="10px 'JetBrains Mono',monospace";
+      ctx.textAlign="right"; ctx.fillText("₹"+Math.round(pv), W-PAD.right+50, y+4);
+    }
+
+    // candles
+    const bw=Math.max(2,(cw/N)*0.6);
+    for(let i=0;i<N;i++){
+      const x=xP(i), o=opens[i], cl=closes[i], h=highs[i], l=lows[i];
+      if(o==null||cl==null) continue;
+      const bull=cl>=o;
+      const col=bull?"rgba(0,212,170,.85)":"rgba(255,77,109,.85)";
+      // wick
+      ctx.strokeStyle=col; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x,yP(h)); ctx.lineTo(x,yP(l)); ctx.stroke();
+      // body
+      const by=yP(Math.max(o,cl)), bh=Math.max(1,Math.abs(yP(o)-yP(cl)));
+      ctx.fillStyle=col;
+      ctx.fillRect(x-bw/2, by, bw, bh);
+    }
+
+    // EMA lines
+    const line=(series,color,w)=>{
+      ctx.strokeStyle=color; ctx.lineWidth=w; ctx.lineJoin="round"; ctx.lineCap="round";
+      ctx.setLineDash([]); ctx.beginPath();
+      let started=false;
+      series.forEach((v,i)=>{ if(v==null) return; started?ctx.lineTo(xP(i),yP(v)):ctx.moveTo(xP(i),yP(v)); started=true; });
+      ctx.stroke();
+    };
+    line(e26s,"#a855f7",2);
+    line(e13s,"#f6c90e",2);
+    line(e5s, "#00d4aa",2.5);
+
+    // x-axis labels (every ~10 bars)
+    ctx.fillStyle="rgba(255,255,255,.3)"; ctx.font="10px Inter,sans-serif"; ctx.textAlign="center";
+    for(let i=0;i<N;i+=10){
+      const d=new Date(ts[i]*1000);
+      ctx.fillText(d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}), xP(i), H-PAD.bottom+14);
+    }
+  }
+
+  // ── RENDER FULL PAGE ──
+  function renderPage(raw, emas, crosses) {
+    const wrap     = document.getElementById("pageWrap");
+    const change   = raw.prev>0 ? ((raw.price-raw.prev)/raw.prev)*100 : 0;
+    const chgSign  = change>=0?"+":"";
+    const chgClass = change>=0?"pos":"neg";
+    const last     = emas[emas.length-1]||{};
+    const fullyAligned = last.e5>last.e13&&last.e13>last.e26;
+
+    // ── ENTRY BASIS ── (EMA13 is support in uptrend)
+    const entry    = last.e13 ? last.e13 * 1.002 : raw.price;
+    const sl       = last.e13 ? last.e13 * 0.97  : raw.price * 0.97;
+    const t1       = raw.price * 1.05;
+    const t2       = raw.price * 1.10;
+    const rr       = ((t1-entry)/(entry-sl)).toFixed(1);
+
+    wrap.innerHTML = `
+    <a href="index.html" class="back-btn">← Back to Screener</a>
+
+    <!-- Stock Header -->
+    <div class="stock-hdr">
+      <div>
+        <div class="stock-ticker">${SYMBOL}</div>
+        <div class="stock-full">${NAME}</div>
+        <div class="stock-tags">
+          <span class="stock-tag tag-bull">🔥 Strong Bullish</span>
+          <span class="stock-tag tag-sector">🏭 ${SECTOR}</span>
+          <span class="stock-tag tag-tf">📊 Daily 1D</span>
+          ${fullyAligned?'<span class="stock-tag tag-bull">💎 Full EMA Alignment</span>':''}
+        </div>
+      </div>
+      <div class="price-block">
+        <div class="price-ltp">₹${fmt(raw.price)}</div>
+        <div class="price-chg ${chgClass}">${chgSign}${change.toFixed(2)}%</div>
+        <div class="price-note">Live NSE Price</div>
+      </div>
+    </div>
+
+    <!-- Crossover Highlight Bar -->
+    <div class="cross-bar">
+      <div class="cross-card c13">
+        <div class="cross-icon">⚡</div>
+        <div>
+          <div class="cross-label">EMA 5 × EMA 13 Crossover</div>
+          <div class="cross-date-big c13">${crosses.c13Date ? fmtDate(crosses.c13Date) : "Not Found"}</div>
+          <div class="cross-meta">
+            ${crosses.c13Days!=null ? crosses.c13Days+" days ago" : "—"}
+            ${crosses.c13Price ? " · @ ₹"+fmt(crosses.c13Price) : ""}
+          </div>
+        </div>
+      </div>
+      <div class="cross-card c26">
+        <div class="cross-icon">🔶</div>
+        <div>
+          <div class="cross-label">EMA 5 × EMA 26 Crossover</div>
+          <div class="cross-date-big c26">${crosses.c26Date ? fmtDate(crosses.c26Date) : "Not Found"}</div>
+          <div class="cross-meta">
+            ${crosses.c26Days!=null ? crosses.c26Days+" days ago" : "—"}
+            ${crosses.c26Price ? " · @ ₹"+fmt(crosses.c26Price) : ""}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('overview',this)">📊 Overview</button>
+      <button class="tab-btn" onclick="switchTab('chart',this)">📈 EMA Chart</button>
+      <button class="tab-btn" onclick="switchTab('levels',this)">🎯 Key Levels</button>
+      <button class="tab-btn" onclick="switchTab('news',this)">📰 News</button>
+    </div>
+
+    <!-- TAB: Overview -->
+    <div class="tab-panel active" id="tp-overview">
+      <div class="sig-grid">
+        <div class="sig-box">
+          <div class="sig-ico">📈</div>
+          <div class="sig-lbl">EMA 5</div>
+          <div class="sig-val" style="color:var(--green)">₹${fmt(last.e5)}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-ico">📊</div>
+          <div class="sig-lbl">EMA 13</div>
+          <div class="sig-val" style="color:var(--yellow)">₹${fmt(last.e13)}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-ico">🔺</div>
+          <div class="sig-lbl">EMA 26</div>
+          <div class="sig-val" style="color:var(--purple)">₹${fmt(last.e26)}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-ico">${fullyAligned?"💎":"⚡"}</div>
+          <div class="sig-lbl">EMA Alignment</div>
+          <div class="sig-val" style="color:${fullyAligned?"var(--green)":"var(--yellow)"}">${fullyAligned?"FULL ✓":"PARTIAL"}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-ico">⚡</div>
+          <div class="sig-lbl">EMA5×13 Days Ago</div>
+          <div class="sig-val">${crosses.c13Days!=null?crosses.c13Days+"d":"—"}</div>
+        </div>
+        <div class="sig-box">
+          <div class="sig-ico">🔶</div>
+          <div class="sig-lbl">EMA5×26 Days Ago</div>
+          <div class="sig-val">${crosses.c26Days!=null?crosses.c26Days+"d":"—"}</div>
+        </div>
+      </div>
+
+      <div class="layout-2col">
+        <div class="glass-card" style="padding:24px;">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:18px;">🔍 Signal Analysis</h3>
+          <div class="insights">
+            <div class="insight"><div class="ins-ico">⚡</div>
+              <div class="ins-txt"><strong>EMA5 × EMA13 Cross:</strong> Occurred on <strong>${crosses.c13Date?fmtDate(crosses.c13Date):"N/A"}</strong>${crosses.c13Days!=null?" ("+crosses.c13Days+" days ago)":""} at EMA5 = ₹${fmt(crosses.c13Price)}. This is the short-term bullish trigger — momentum shift confirmed.</div>
+            </div>
+            <div class="insight"><div class="ins-ico">🔶</div>
+              <div class="ins-txt"><strong>EMA5 × EMA26 Cross:</strong> Occurred on <strong>${crosses.c26Date?fmtDate(crosses.c26Date):"N/A"}</strong>${crosses.c26Days!=null?" ("+crosses.c26Days+" days ago)":""} at EMA5 = ₹${fmt(crosses.c26Price)}. Medium-term trend confirmed bullish.</div>
+            </div>
+            <div class="insight"><div class="ins-ico">${fullyAligned?"💎":"⚠️"}</div>
+              <div class="ins-txt"><strong>Current Alignment:</strong> ${fullyAligned
+                ? "EMA5 > EMA13 > EMA26 — <strong>Full Bullish Alignment active</strong>. All three EMAs stacked correctly, trend intact."
+                : "EMA5 > EMA13 but EMA13 not fully above EMA26 yet — <strong>trend forming</strong>, watch for full alignment."}</div>
+            </div>
+            <div class="insight"><div class="ins-ico">📊</div>
+              <div class="ins-txt"><strong>Price vs EMAs:</strong> LTP ₹${fmt(raw.price)} is 
+                ${last.e5&&raw.price>last.e5?"<strong>above EMA5 ✓</strong>":"<strong style='color:var(--red)'>below EMA5</strong>"}, 
+                ${last.e13&&raw.price>last.e13?"above EMA13 ✓,":"below EMA13,"} 
+                ${last.e26&&raw.price>last.e26?"above EMA26 ✓":"below EMA26"}.</div>
+            </div>
+          </div>
+          <a href="https://www.tradingview.com/chart/?symbol=NSE:${SYMBOL}" target="_blank" class="tv-btn">📈 Open on TradingView</a>
+        </div>
+
+        <div class="glass-card" style="padding:24px;">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:18px;">🎯 Trade Setup (EMA-Based)</h3>
+          <div class="setup-grid">
+            <div class="setup-row entry">
+              <span class="setup-lbl">📌 Entry Zone (above EMA13)</span>
+              <span class="setup-val" style="color:var(--green)">₹${fmt(entry)}</span>
+            </div>
+            <div class="setup-row sl">
+              <span class="setup-lbl">🛡 Stop Loss (−3% below EMA13)</span>
+              <span class="setup-val" style="color:var(--red)">₹${fmt(sl)}</span>
+            </div>
+            <div class="setup-row t1">
+              <span class="setup-lbl">🎯 Target 1 (+5%)</span>
+              <span class="setup-val" style="color:var(--purple)">₹${fmt(t1)}</span>
+            </div>
+            <div class="setup-row t2">
+              <span class="setup-lbl">🎯 Target 2 (+10%)</span>
+              <span class="setup-val" style="color:var(--yellow)">₹${fmt(t2)}</span>
+            </div>
+            <div class="setup-row rr">
+              <span class="setup-lbl">⚖ Risk : Reward</span>
+              <span class="setup-val" style="color:#3b82f6">1 : ${rr}</span>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:16px;line-height:1.6;">
+            ⚠️ This is an educational tool. Always do your own research. Past EMA signals do not guarantee future returns.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Chart -->
+    <div class="tab-panel" id="tp-chart">
+      <div class="glass-card" style="padding:24px;">
+        <div class="chart-legend">
+          <div class="leg-item"><div class="leg-line" style="background:#00d4aa"></div><span style="color:#00d4aa;font-size:12px;">EMA 5</span></div>
+          <div class="leg-item"><div class="leg-line" style="background:#f6c90e"></div><span style="color:#f6c90e;font-size:12px;">EMA 13</span></div>
+          <div class="leg-item"><div class="leg-line" style="background:#a855f7"></div><span style="color:#a855f7;font-size:12px;">EMA 26</span></div>
+          <div class="leg-item"><div class="leg-line" style="background:#00d4aa;opacity:.5;height:8px;border-radius:2px;"></div><span style="font-size:12px;color:var(--text-muted)">Bullish candle</span></div>
+          <div class="leg-item"><div class="leg-line" style="background:#ff4d6d;opacity:.5;height:8px;border-radius:2px;"></div><span style="font-size:12px;color:var(--text-muted)">Bearish candle</span></div>
+        </div>
+        <div class="canvas-box"><canvas id="mainChart" height="400"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TAB: Levels -->
+    <div class="tab-panel" id="tp-levels">
+      <div class="glass-card" style="padding:24px;">
+        <h3 style="font-size:15px;font-weight:700;margin-bottom:20px;">🎯 Key Price Levels</h3>
+        <div class="table-wrapper">
+          <table class="lvl-tbl">
+            <thead><tr><th>Level</th><th>Price</th><th>Type</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600;color:var(--red)">52-Week High</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(Math.max(...raw.highs.slice(-252)))}</td>
+                <td><span class="lvl-pill lvl-res">Resistance</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Yearly high — strong supply zone, expect profit booking</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--red)">Recent High</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(Math.max(...raw.highs.slice(-20)))}</td>
+                <td><span class="lvl-pill lvl-res">Resistance</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Last 20-day high — immediate resistance level</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--yellow)">Current Price</td>
+                <td style="font-family:var(--mono);font-weight:800;color:var(--green)">₹${fmt(raw.price)} ◀</td>
+                <td><span class="lvl-pill lvl-cur">Live</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Latest traded price</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--green)">EMA 5 (fast)</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(last.e5)}</td>
+                <td><span class="lvl-pill lvl-sup">Support</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Dynamic short-term support — buy-on-dip zone</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--green)">EMA 13 (mid)</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(last.e13)}</td>
+                <td><span class="lvl-pill lvl-sup">Support</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Key trend support — stop-loss invalidation below this</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--green)">EMA 26 (slow)</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(last.e26)}</td>
+                <td><span class="lvl-pill lvl-sup">Support</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Medium-term base — strong support in bull trend</td>
+              </tr>
+              <tr>
+                <td style="font-weight:600;color:var(--green)">52-Week Low</td>
+                <td style="font-family:var(--mono);font-weight:700">₹${fmt(Math.min(...raw.lows.slice(-252)))}</td>
+                <td><span class="lvl-pill lvl-sup">Strong Support</span></td>
+                <td style="font-size:13px;color:var(--text-secondary)">Yearly low — major demand zone if revisited</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: News -->
+    <div class="tab-panel" id="tp-news">
+      <div class="glass-card" style="padding:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:4px;">
+          <h3 style="font-size:15px;font-weight:700;">📰 Recent News — ${SYMBOL}</h3>
+        </div>
+        <div class="sent-summary" id="newsSentSummary"></div>
+        <div class="news-list" id="newsList">
+          <div class="news-empty">📰 Click the <strong>News</strong> tab to load latest headlines for ${SYMBOL}</div>
+        </div>
+      </div>
+    </div>
+    `;
+
+    // draw chart when chart tab is opened
+    window._rawData = raw; window._emas = emas;
+  }
+
+  function switchTab(id, btn) {
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.getElementById("tp-"+id).classList.add("active");
+    btn.classList.add("active");
+    if (id === "chart") setTimeout(()=>drawChart("mainChart",window._rawData,window._emas), 50);
+    if (id === "news" && !window._newsFetched) { window._newsFetched = true; loadNewsTab(); }
+  }
+
+  // ── NEWS FETCH & SENTIMENT ──
+  function analyzeNewsSentiment(title) {
+    const t = title.toLowerCase();
+    const pos = ['profit','growth','rise','surge','beat','strong','gain','bull','positive','increase',
+                 'expand','dividend','record','outperform','upgrade','rally','boost','win','soar','jump',
+                 'high','approve','launch','award','order','contract','invest'];
+    const neg = ['loss','fall','decline','miss','weak','bear','negative','decrease','cut','concern',
+                 'risk','warning','low','slump','drop','downgrade','crash','fail','hurt','penalty',
+                 'fine','probe','investigation','below','fraud','default','delay','cancel','withdraw'];
+    const ps = pos.filter(w => t.includes(w)).length;
+    const ns = neg.filter(w => t.includes(w)).length;
+    if (ps > ns) return 'positive';
+    if (ns > ps) return 'negative';
+    return 'neutral';
+  }
+
+  async function fetchNews(sym) {
+    const proxy = "https://api.allorigins.win/raw?url=";
+    const url   = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(sym)}&newsCount=15&quotesCount=0&enableFuzzyQuery=false`;
+    const res   = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data  = await res.json();
+    return (data.news || []).slice(0, 15);
+  }
+
+  async function loadNewsTab() {
+    const list = document.getElementById("newsList");
+    if (!list) return;
+    list.innerHTML = '<div class="news-empty">⏳ Fetching latest news…</div>';
+    try {
+      const articles = await fetchNews(SYM);
+      if (!articles.length) {
+        list.innerHTML = `<div class="news-empty">No recent news found for ${SYMBOL}.</div>`;
+        return;
+      }
+      let pos = 0, neg = 0, neu = 0;
+      list.innerHTML = articles.map(a => {
+        const sent = analyzeNewsSentiment(a.title || '');
+        if (sent === 'positive') pos++;
+        else if (sent === 'negative') neg++;
+        else neu++;
+        const dateStr = a.providerPublishTime
+          ? new Date(a.providerPublishTime * 1000).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })
+          : '';
+        const badgeClass = sent==='positive' ? 'news-pos' : sent==='negative' ? 'news-neg' : 'news-neu';
+        const badgeText  = sent==='positive' ? '🟢 Positive' : sent==='negative' ? '🔴 Negative' : '⚪ Neutral';
+        return `
+          <a class="news-card" href="${a.link||'#'}" target="_blank" rel="noopener noreferrer">
+            <div class="news-card-top">
+              <div class="news-title">${a.title || 'No title'}</div>
+              <span class="news-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="news-meta">${a.publisher||''}${dateStr?' · '+dateStr:''}</div>
+          </a>`;
+      }).join('');
+
+      // Sentiment summary chips
+      const sumEl = document.getElementById('newsSentSummary');
+      if (sumEl) sumEl.innerHTML = [
+        pos ? `<span class="sent-chip news-pos">🟢 ${pos} Positive</span>` : '',
+        neg ? `<span class="sent-chip news-neg">🔴 ${neg} Negative</span>` : '',
+        neu ? `<span class="sent-chip news-neu">⚪ ${neu} Neutral</span>`  : '',
+      ].join('');
+
+    } catch(e) {
+      list.innerHTML = `<div class="news-empty">⚠️ Could not load news: ${e.message}</div>`;
+    }
+  }
+
+  // particles
+  function initParticles() {
+    const c=document.getElementById("bgParticles"); if(!c) return;
+    ["#00d4aa","#a855f7","#f6c90e","#3b82f6"].forEach(col=>{
+      for(let i=0;i<5;i++){
+        const p=document.createElement("div"); p.className="particle";
+        const sz=Math.random()*4+2;
+        p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${col};box-shadow:0 0 ${sz*3}px ${col};animation-duration:${12+Math.random()*18}s;animation-delay:${Math.random()*12}s;`;
+        c.appendChild(p);
+      }
+    });
+  }
+
+  // ── BOOT ──
+  window.switchTab = switchTab;
+
+  (async()=>{
+    initParticles();
+    try {
+      document.getElementById("loadMsg").textContent = `Fetching ${SYMBOL} from Yahoo Finance…`;
+      const raw    = await fetchData(SYM);
+      document.getElementById("loadMsg").textContent = "Computing EMA 5 / 13 / 26…";
+      const emas   = computeEMAs(raw.closes);
+      let   crosses= findCrossovers(emas, raw.timestamps);
+
+      // Merge: if live computation found crossover dates, use them.
+      // Otherwise fall back to what was passed in the URL from screener.
+      crosses = {
+        c13Date:  crosses.c13Date  || urlCross.c13Date,
+        c13Price: crosses.c13Price || urlCross.c13Price,
+        c13Days:  crosses.c13Days  != null ? crosses.c13Days  : urlCross.c13Days,
+        c26Date:  crosses.c26Date  || urlCross.c26Date,
+        c26Price: crosses.c26Price || urlCross.c26Price,
+        c26Days:  crosses.c26Days  != null ? crosses.c26Days  : urlCross.c26Days,
+      };
+
+      document.getElementById("pageLoading").remove();
+      renderPage(raw, emas, crosses);
+    } catch(err) {
+      document.getElementById("pageLoading").innerHTML = `
+        <div style="text-align:center;padding:40px;">
+          <div style="font-size:40px;margin-bottom:16px;">⚠️</div>
+          <h3 style="color:var(--red);margin-bottom:8px;">Failed to load ${SYMBOL}</h3>
+          <p style="color:var(--text-muted);margin-bottom:20px;">${err.message}</p>
+          <a href="index.html" class="back-btn" style="display:inline-flex;">← Back to Screener</a>
+        </div>`;
+    }
+  })();
+  </script>
+</body>
+</html>

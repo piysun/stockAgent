@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <script>
+    // ── AUTH GUARD ──
+    (function(){
+      const ok = sessionStorage.getItem("ema_auth_session") || localStorage.getItem("ema_auth_session");
+      if (ok !== "1") { window.location.replace("login.html"); }
+    })();
+  </script>
+  <title>Strong Bullish Scanner | EMA 5/13/26 NSE</title>
+  <meta name="description" content="Find NSE stocks where EMA5 crossed above EMA13 AND EMA26 within the last 30 days — the double crossover signal."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── NAV TABS ── */
+    .nav-tabs { display:flex; gap:4px; align-items:center; }
+    .nav-tab  { display:inline-flex; align-items:center; gap:6px; padding:7px 18px;
+                border-radius:8px; font-size:13px; font-weight:600; text-decoration:none;
+                color:var(--text-secondary); border:1px solid transparent; transition:all .2s; }
+    .nav-tab:hover { color:var(--text-primary); background:rgba(255,255,255,.06); border-color:var(--border); }
+    .nav-tab.active { color:var(--green); background:rgba(0,212,170,.1); border-color:rgba(0,212,170,.3); }
+    .nav-tab.bm-tab { color:#f0a500; }
+    .nav-tab.bm-tab:hover { background:rgba(240,165,0,.08); border-color:rgba(240,165,0,.3); }
+
+    .scan-info { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; margin-bottom:24px; }
+    .scan-card  { padding:18px 20px; border-radius:var(--radius-md); border:1px solid var(--border);
+                  background:var(--bg-card); display:flex; align-items:flex-start; gap:14px; transition:border-color 0.2s; }
+    .scan-card:hover { border-color:rgba(0,212,170,0.4); }
+    .scan-card-icon  { font-size:24px; flex-shrink:0; }
+    .scan-card-title { font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:4px; }
+    .scan-card-desc  { font-size:12px; color:var(--text-muted); line-height:1.6; }
+
+    .cross-cell  { display:flex; flex-direction:column; gap:3px; }
+    .cross-pill  { display:inline-flex; align-items:center; gap:4px; padding:3px 9px;
+                   border-radius:100px; font-family:var(--mono); font-size:11px; font-weight:700; white-space:nowrap; }
+    .cross-pill.c13 { background:rgba(0,212,170,.12); border:1px solid rgba(0,212,170,.3); color:var(--green); }
+    .cross-pill.c26 { background:rgba(168,85,247,.12); border:1px solid rgba(168,85,247,.3); color:var(--purple); }
+    .cross-sub   { font-size:10px; color:var(--text-muted); font-family:var(--mono); padding-left:4px; }
+
+    .hero-chips  { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:18px; }
+    .hero-chip   { padding:5px 14px; border-radius:100px; font-size:12px; font-weight:600;
+                   border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05);
+                   color:var(--text-secondary); }
+    .view-btn    { display:inline-flex; align-items:center; gap:6px; padding:6px 14px;
+                   border-radius:8px; background:linear-gradient(135deg,#00d4aa22,#7c3aed22);
+                   border:1px solid rgba(0,212,170,.35); color:var(--green);
+                   font-size:12px; font-weight:700; cursor:pointer; text-decoration:none;
+                   transition:all .2s; }
+    .view-btn:hover { background:linear-gradient(135deg,#00d4aa44,#7c3aed44); }
+
+    /* ── BOOKMARK BUTTON (in table) ── */
+    .bm-row-btn {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:4px 10px; border-radius:7px; font-size:11px; font-weight:700;
+      border:1px solid rgba(240,165,0,.35); background:rgba(240,165,0,.08);
+      color:#f0a500; cursor:pointer; font-family:var(--font); transition:all .2s;
+      white-space:nowrap;
+    }
+    .bm-row-btn:hover { background:rgba(240,165,0,.2); transform:scale(1.05); }
+    .bm-row-btn.bookmarked {
+      background:rgba(240,165,0,.2); border-color:rgba(240,165,0,.6);
+      color:#f0c040;
+    }
+
+    /* ── TOAST ── */
+    #bmToast {
+      position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px);
+      background:rgba(6,11,20,.95); border:1px solid rgba(240,165,0,.4);
+      border-radius:12px; padding:12px 24px; font-size:13px; font-weight:600;
+      color:#f0a500; backdrop-filter:blur(20px); box-shadow:0 8px 32px rgba(0,0,0,.6);
+      z-index:9999; opacity:0; transition:all .35s cubic-bezier(.16,1,.3,1); white-space:nowrap;
+    }
+    #bmToast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+  </style>
+</head>
+<body>
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 17L9 11L13 15L21 7" stroke="url(#g1)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="g1" x1="3" y1="17" x2="21" y2="7" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00d4aa"/><stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient></defs>
+          </svg>
+        </div>
+        <span class="logo-text">EMA <span class="logo-accent">Screener</span></span>
+      </div>
+      <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab active">🔥 Scanner</a>
+        <a href="bookmark.html" class="nav-tab bm-tab" id="navBookmark">📌 Bookmarks <span id="bmCountBadge" style="display:none;background:rgba(240,165,0,.2);border:1px solid rgba(240,165,0,.4);border-radius:100px;padding:1px 8px;font-size:10px;color:#f0a500;margin-left:4px;font-family:var(--mono);font-weight:700;"></span></a>
+      </nav>
+      <div class="header-meta">
+        <span class="last-updated" id="lastUpdated">NSE India · Strong Bullish</span>
+        <div class="live-dot"></div>
+        <button onclick="logout()" style="padding:5px 14px;border-radius:8px;border:1px solid rgba(255,77,109,.3);background:rgba(255,77,109,.08);color:#ff4d6d;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);transition:all .2s;margin-left:8px;" title="Logout">🚪 Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <!-- <div class="badge">🔥 Double EMA Crossover Scanner</div> 
+      <h1>Find Stocks Like <br/><span class="gradient-text">LT · BAJFINANCE</span><br/>Before They Run</h1>
+      <p class="hero-sub">
+        Scans all NSE stocks and finds where <strong>EMA 5 crossed above EMA 13</strong> AND
+        <strong>EMA 5 crossed above EMA 26</strong> — both within the last 30 days.
+        Click any result for a <strong>full chart analysis</strong>.
+      </p>
+      <div class="hero-chips">
+        <span class="hero-chip">⚡ EMA5 × EMA13 Crossover</span>
+        <span class="hero-chip">🔶 EMA5 × EMA26 Crossover</span>
+        <span class="hero-chip">📅 Exact Date Shown</span>
+        <span class="hero-chip">📊 Deep Analysis on Click</span>
+      </div>-->
+    </div>
+  </section>
+
+  <main class="app-container">
+
+    <!-- What we scan for -->
+    <div class="scan-info">
+      <div class="scan-card">
+        <div class="scan-card-icon">⚡</div>
+        <div>
+          <div class="scan-card-title">EMA5 × EMA13 Crossover</div>
+          <div class="scan-card-desc">EMA 5 crossed above EMA 13 within last 30 days — short-term bullish momentum confirmed.</div>
+        </div>
+      </div>
+      <div class="scan-card">
+        <div class="scan-card-icon">🔶</div>
+        <div>
+          <div class="scan-card-title">EMA5 × EMA26 Crossover</div>
+          <div class="scan-card-desc">EMA 5 also crossed above EMA 26 — medium-term trend fully turning bullish.</div>
+        </div>
+      </div>
+      <div class="scan-card">
+        <div class="scan-card-icon">🛡️</div>
+        <div>
+          <div class="scan-card-title">Still Holding Above EMAs</div>
+          <div class="scan-card-desc">Filters out false breakouts — EMA5 must still be above EMA13 right now.</div>
+        </div>
+      </div>
+      <div class="scan-card">
+        <div class="scan-card-icon">📊</div>
+        <div>
+          <div class="scan-card-title">Full Analysis on Click</div>
+          <div class="scan-card-desc">Click any stock row for a complete analysis page — chart, key levels, trade setup.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-panel glass-card">
+      <div class="controls-row">
+        <div class="control-group">
+          <label class="control-label">🏭 Sector Filter</label>
+          <select id="sectorFilter" onchange="applySectorFilter()" class="select-input">
+            <option value="all">All Sectors</option>
+            <option value="IT">Information Technology</option>
+            <option value="Bank">Banking &amp; Finance</option>
+            <option value="Auto">Automobile</option>
+            <option value="Pharma">Pharmaceuticals</option>
+            <option value="FMCG">FMCG</option>
+            <option value="Metal">Metals &amp; Mining</option>
+            <option value="Energy">Energy &amp; Power</option>
+          </select>
+        </div>
+        <div class="control-group flex-grow">
+          <label class="control-label">🔍 Search Stock</label>
+          <div class="search-wrap">
+            <input type="text" id="searchInput" placeholder="e.g. RELIANCE, LT, INFY..." class="search-input" oninput="filterSearch(this.value)"/>
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+        </div>
+        <div class="control-group">
+          <label class="control-label">&nbsp;</label>
+          <button class="btn-run" id="runBtn" onclick="runScreener()"
+                  style="background:linear-gradient(135deg,#ff6b35,#e63946,#c1121f); box-shadow:0 0 30px rgba(230,57,70,.35);">
+            <span class="btn-text">🔥 Find Strong Bullish</span>
+            <div class="btn-loader" id="btnLoader" style="display:none;"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row" id="statsRow" style="display:none;">
+      <div class="stat-card glass-card">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Stocks Matched</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="stat-value green" id="statFresh">0</div>
+        <div class="stat-label">Fresh Cross (≤7 days)</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="stat-value yellow" id="statAligned">0</div>
+        <div class="stat-label">Fully Aligned EMA</div>
+      </div>
+      <div class="stat-card glass-card">
+        <div class="stat-value purple" id="statSectors">0</div>
+        <div class="stat-label">Sectors Found</div>
+      </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="results-panel glass-card" id="resultsPanel" style="display:none;">
+      <div class="results-header">
+        <h2 class="results-title" id="resultsTitle">🔥 Strong Bullish Stocks</h2>
+        <div class="results-actions">
+          <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+          <span class="result-count" id="resultCount">0 stocks</span>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="stocks-table" id="stocksTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th onclick="sortTable('symbol')">Symbol ↕</th>
+              <th onclick="sortTable('name')">Company</th>
+              <th>Sector</th>
+              <th onclick="sortTable('price')">LTP ↕</th>
+              <th onclick="sortTable('change')">Chg% ↕</th>
+              <th onclick="sortTable('ema5')">EMA 5 ↕</th>
+              <th onclick="sortTable('ema13')">EMA 13 ↕</th>
+              <th onclick="sortTable('ema26')">EMA 26 ↕</th>
+              <th onclick="sortTable('cross13Days')">EMA5 × EMA13 📅 ↕</th>
+              <th onclick="sortTable('cross26Days')">EMA5 × EMA26 📅 ↕</th>
+              <th>Signal</th>
+              <th>📌</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🔥</div>
+      <h3>Ready to Scan</h3>
+      <p>Click <strong>"🔥 Find Strong Bullish"</strong> to scan all NSE stocks for the double EMA crossover signal.<br/>
+         Click any result row to open the <strong>full chart analysis</strong>.</p>
+      <div class="ema-preview">
+        <div class="ema-line" style="--color:#00d4aa;--delay:0s">EMA 5 &nbsp;<span style="color:#00d4aa;font-family:'JetBrains Mono'">─────</span></div>
+        <div class="ema-line" style="--color:#f6c90e;--delay:.2s">EMA 13<span style="color:#f6c90e;font-family:'JetBrains Mono'">─────</span></div>
+        <div class="ema-line" style="--color:#a855f7;--delay:.4s">EMA 26<span style="color:#a855f7;font-family:'JetBrains Mono'">─────</span></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-state" id="loadingState" style="display:none;">
+      <div class="loading-animation">
+        <div class="loading-bars">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+        <p class="loading-text" id="loadingText">Fetching market data...</p>
+        <div class="loading-steps" id="loadingSteps"></div>
+      </div>
+    </div>
+
+  </main>
+  <script src="screener.js"></script>
+  <div id="bmToast"></div>
+  <script>
+  // ── BOOKMARK helpers (index page) ──
+  const BM_KEY = "ema_bookmarks_v1";
+  function loadBMs() {
+    try { return JSON.parse(localStorage.getItem(BM_KEY)||"[]"); } catch(e){ return []; }
+  }
+  function saveBMs(arr) { localStorage.setItem(BM_KEY, JSON.stringify(arr)); }
+  function isBookmarked(sym) { return loadBMs().some(b => b.sym === sym); }
+
+  function toggleBookmark(sym, stock, btn, e) {
+    e.stopPropagation();
+    let bms = loadBMs();
+    const idx = bms.findIndex(b => b.sym === sym);
+    if (idx !== -1) {
+      bms.splice(idx, 1);
+      saveBMs(bms);
+      btn.textContent = "📌";
+      btn.title = "Bookmark this stock";
+      btn.classList.remove("bookmarked");
+      showBmToast("📌 Bookmark removed");
+    } else {
+      const entry = {
+        sym,
+        symbol:      stock.symbol,
+        name:        stock.name,
+        sector:      stock.sector,
+        entryPrice:  stock.price,
+        entryDate:   new Date().toISOString(),
+        entryEma5:   stock.ema5,
+        cross13Date: stock.cross13Date instanceof Date ? stock.cross13Date.toISOString() : (stock.cross13Date || null),
+        cross26Date: stock.cross26Date instanceof Date ? stock.cross26Date.toISOString() : (stock.cross26Date || null),
+        note:        "",
+        bookmarkedAt: new Date().toISOString(),
+      };
+      bms.push(entry);
+      saveBMs(bms);
+      btn.innerHTML = "✅ Saved";
+      btn.title = "Remove bookmark";
+      btn.classList.add("bookmarked");
+      showBmToast("📌 Bookmarked! View in Bookmarks tab");
+    }
+    updateBmBadge();
+  }
+
+  function updateBmBadge() {
+    const bms   = loadBMs();
+    const badge = document.getElementById("bmCountBadge");
+    if (badge) {
+      badge.textContent = bms.length;
+      badge.style.display = bms.length > 0 ? "inline" : "none";
+    }
+  }
+
+  function showBmToast(msg) {
+    const t = document.getElementById("bmToast");
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2800);
+  }
+
+  // Run badge update on load
+  document.addEventListener("DOMContentLoaded", updateBmBadge);
+
+  function logout() {
+    sessionStorage.removeItem("ema_auth_session");
+    localStorage.removeItem("ema_auth_session");
+    window.location.href = "login.html";
+  }
+  </script>
+</body>
+</html>

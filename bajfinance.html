@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>BAJFINANCE Analysis | EMA Signal Dashboard</title>
+  <meta name="description" content="Technical analysis of Bajaj Finance (BAJFINANCE) using EMA 5/13/26 — buy/sell signals, trend zones, volume analysis."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ── Analysis page extras ── */
+    .analysis-hero { padding: 48px 32px 30px; max-width:1400px; margin:0 auto; }
+    .stock-header { display:flex; align-items:flex-start; gap:24px; flex-wrap:wrap; margin-bottom:32px; }
+    .stock-ticker { font-family:var(--mono); font-size:40px; font-weight:800; color:var(--green); letter-spacing:-1px; }
+    .stock-fullname { font-size:16px; color:var(--text-secondary); margin-top:4px; }
+    .stock-price-block { margin-left:auto; text-align:right; }
+    .stock-ltp { font-family:var(--mono); font-size:36px; font-weight:700; color:var(--text-primary); }
+    .stock-chg { font-family:var(--mono); font-size:18px; font-weight:600; color:var(--green); margin-top:4px; }
+    .stock-date { font-size:12px; color:var(--text-muted); margin-top:6px; }
+
+    /* Nav tabs */
+    .tab-nav { display:flex; gap:4px; margin-bottom:24px; border-bottom:1px solid var(--border); padding-bottom:0; }
+    .tab-btn { padding:10px 20px; border:none; background:transparent; color:var(--text-secondary);
+               font-family:var(--font); font-size:14px; font-weight:500; cursor:pointer;
+               border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.2s; }
+    .tab-btn.active { color:var(--green); border-bottom-color:var(--green); }
+    .tab-btn:hover { color:var(--text-primary); }
+    .tab-content { display:none; } .tab-content.active { display:block; }
+
+    /* Signal board */
+    .signal-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+    .signal-card { padding:20px; border-radius:var(--radius-md); border:1px solid var(--border);
+                   background:var(--bg-card); text-align:center; position:relative; overflow:hidden; }
+    .signal-card::before { content:''; position:absolute; inset:0; opacity:0.05; border-radius:inherit; }
+    .signal-card.bull::before { background:var(--green); }
+    .signal-card.bear::before { background:var(--red); }
+    .signal-card.neutral::before { background:var(--yellow); }
+    .sig-icon { font-size:28px; margin-bottom:8px; }
+    .sig-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.7px; color:var(--text-muted); margin-bottom:6px; }
+    .sig-value { font-size:18px; font-weight:700; font-family:var(--mono); }
+    .sig-value.green { color:var(--green); } .sig-value.red { color:var(--red); } .sig-value.yellow { color:var(--yellow); }
+
+    /* Chart canvas area */
+    .chart-section { margin-bottom:24px; }
+    .chart-title { font-size:15px; font-weight:600; margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.6px; }
+    .canvas-wrap { position:relative; width:100%; background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; }
+    canvas { display:block; width:100%; }
+
+    /* EMA Legend */
+    .ema-legend { display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
+    .legend-item { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .legend-line { width:28px; height:3px; border-radius:2px; }
+    .legend-dot  { width:10px; height:10px; border-radius:50%; }
+
+    /* Analysis grid */
+    .analysis-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media(max-width:700px){ .analysis-grid { grid-template-columns:1fr; } }
+
+    /* Pine script box */
+    .pine-box { background:rgba(0,0,0,0.4); border:1px solid rgba(0,212,170,0.2); border-radius:var(--radius-md);
+                padding:20px; font-family:var(--mono); font-size:12px; line-height:1.7; overflow-x:auto; white-space:pre; color:#c9d1d9; }
+    .pine-kw  { color:#ff7b72; } .pine-fn  { color:#d2a8ff; } .pine-str { color:#a5d6ff; }
+    .pine-num { color:#f8c555; } .pine-cmt { color:#6e7681; }
+
+    /* Levels table */
+    .levels-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .levels-table th { padding:12px 14px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase;
+                       letter-spacing:0.6px; color:var(--text-muted); border-bottom:1px solid var(--border); }
+    .levels-table td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .levels-table tr:last-child td { border-bottom:none; }
+    .lvl-tag { display:inline-block; padding:2px 10px; border-radius:100px; font-size:11px; font-weight:700; }
+    .lvl-sup  { background:rgba(0,212,170,0.12); color:var(--green); }
+    .lvl-res  { background:rgba(255,77,109,0.12); color:var(--red); }
+    .lvl-crt  { background:rgba(246,201,14,0.12); color:var(--yellow); }
+
+    /* Volume bars */
+    .vol-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .vol-label { font-size:12px; color:var(--text-muted); font-family:var(--mono); width:80px; text-align:right; flex-shrink:0; }
+    .vol-bar-wrap { flex:1; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden; height:20px; }
+    .vol-bar { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:8px;
+               font-size:11px; font-weight:600; color:rgba(0,0,0,0.7); transition:width 1s cubic-bezier(0.16,1,0.3,1); }
+
+    /* Insight card */
+    .insight-list { display:flex; flex-direction:column; gap:12px; }
+    .insight-item { display:flex; gap:12px; align-items:flex-start; padding:14px; border-radius:var(--radius-sm);
+                    background:rgba(255,255,255,0.03); border:1px solid var(--border); }
+    .insight-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
+    .insight-text { font-size:13px; color:var(--text-secondary); line-height:1.6; }
+    .insight-text strong { color:var(--text-primary); }
+
+    /* Back link */
+    .back-link { display:inline-flex; align-items:center; gap:8px; color:var(--text-secondary); text-decoration:none;
+                 font-size:14px; font-weight:500; margin-bottom:24px; transition:color 0.2s; }
+    .back-link:hover { color:var(--text-primary); }
+
+    /* Copy button */
+    .copy-btn { padding:8px 16px; border-radius:8px; border:1px solid var(--border); background:transparent;
+                color:var(--text-secondary); font-family:var(--font); font-size:12px; cursor:pointer; transition:all 0.2s; float:right; }
+    .copy-btn:hover { border-color:var(--green); color:var(--green); }
+    .pine-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="bg-particles" id="bgParticles"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 17L9 11L13 15L21 7" stroke="url(#g1)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="g1" x1="3" y1="17" x2="21" y2="7" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00d4aa"/><stop offset="1" stop-color="#7c3aed"/>
+            </linearGradient></defs>
+          </svg>
+        </div>
+        <span class="logo-text">EMA <span class="logo-accent">Screener</span></span>
+      </div>
+      <div class="header-meta">
+        <span class="last-updated">BAJFINANCE · NSE · Daily</span>
+        <div class="live-dot"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Analysis Hero -->
+  <div class="analysis-hero">
+    <a href="index.html" class="back-link">← Back to Screener</a>
+
+    <div class="stock-header">
+      <div>
+        <div class="stock-ticker">BAJFINANCE</div>
+        <div class="stock-fullname">Bajaj Finance Limited — NSE · Banking & Finance</div>
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <span style="padding:4px 12px; border-radius:100px; background:rgba(0,212,170,0.12); border:1px solid rgba(0,212,170,0.3); color:var(--green); font-size:12px; font-weight:700;">📈 BULLISH SETUP</span>
+          <span style="padding:4px 12px; border-radius:100px; background:rgba(246,201,14,0.1); border:1px solid rgba(246,201,14,0.25); color:var(--yellow); font-size:12px; font-weight:600; ">EMA Crossover Detected</span>
+          <span style="padding:4px 12px; border-radius:100px; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text-secondary); font-size:12px;">1D Timeframe</span>
+        </div>
+      </div>
+      <div class="stock-price-block">
+        <div class="stock-ltp">₹1,031.00</div>
+        <div class="stock-chg">+₹25.65 &nbsp;(+2.57%) ↑</div>
+        <div class="stock-date">As of Feb 13, 2026 · Chart Screenshot</div>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('analysis')">📊 Analysis</button>
+      <button class="tab-btn" onclick="switchTab('chart')">📈 EMA Chart</button>
+      <button class="tab-btn" onclick="switchTab('levels')">🎯 Key Levels</button>
+      <button class="tab-btn" onclick="switchTab('indicator')">📋 Pine Script</button>
+    </div>
+
+    <!-- TAB: Analysis -->
+    <div class="tab-content active" id="tab-analysis">
+
+      <!-- Signal Summary Cards -->
+      <div class="signal-board">
+        <div class="signal-card bull">
+          <div class="sig-icon">🟢</div>
+          <div class="sig-label">EMA Signal</div>
+          <div class="sig-value green">BUY</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">EMA5 crossed EMA13</div>
+        </div>
+        <div class="signal-card bull">
+          <div class="sig-icon">📈</div>
+          <div class="sig-label">EMA 5</div>
+          <div class="sig-value green">₹993.75</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Fast EMA · Green line</div>
+        </div>
+        <div class="signal-card neutral">
+          <div class="sig-icon">📊</div>
+          <div class="sig-label">EMA 13</div>
+          <div class="sig-value yellow">₹972.77</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Mid EMA · Yellow line</div>
+        </div>
+        <div class="signal-card bear">
+          <div class="sig-icon">🔺</div>
+          <div class="sig-label">EMA 26</div>
+          <div class="sig-value" style="color:var(--purple)">₹506.58</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Slow EMA · Purple line</div>
+        </div>
+        <div class="signal-card bull">
+          <div class="sig-icon">💡</div>
+          <div class="sig-label">Trend Strength</div>
+          <div class="sig-value green">STRONG</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">V-shaped recovery</div>
+        </div>
+        <div class="signal-card bull">
+          <div class="sig-icon">📦</div>
+          <div class="sig-label">Volume</div>
+          <div class="sig-value green">HIGH</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Above 20-day avg</div>
+        </div>
+      </div>
+
+      <div class="analysis-grid">
+        <!-- Insights -->
+        <div class="glass-card" style="padding:24px;">
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:20px;">🔍 Chart Analysis — Key Observations</h3>
+          <div class="insight-list">
+            <div class="insight-item">
+              <div class="insight-icon">📉</div>
+              <div class="insight-text"><strong>Prior Downtrend:</strong> BAJFINANCE fell from ₹1,120 (Oct 2025) to ₹835 (Jan 2026) — a ~25% decline over ~3 months with EMA5 below EMA13 throughout.</div>
+            </div>
+            <div class="insight-item">
+              <div class="insight-icon">🔄</div>
+              <div class="insight-text"><strong>V-Shaped Reversal:</strong> Strong bounce from ₹835 support. The recovery is steep and accompanied by rising green volume bars — sign of genuine institutional buying.</div>
+            </div>
+            <div class="insight-item">
+              <div class="insight-icon">⚡</div>
+              <div class="insight-text"><strong>EMA Crossover:</strong> EMA 5 (₹993) crossed above EMA 13 (₹972) — this is a <strong>bullish crossover signal</strong> matching the buy condition in your Pine Script indicator.</div>
+            </div>
+            <div class="insight-item">
+              <div class="insight-icon">🎯</div>
+              <div class="insight-text"><strong>Price vs EMAs:</strong> Close (₹1,031) is above both EMA5 and EMA13, confirming short-term bullish momentum. EMA26 (₹506) is still far below — historical adjusted level.</div>
+            </div>
+            <div class="insight-item">
+              <div class="insight-icon">📦</div>
+              <div class="insight-text"><strong>Volume Confirmation:</strong> Large green volume candle on Feb 13 (₹23.81M) confirms the breakout — strong buyer participation, not just a low-volume bounce.</div>
+            </div>
+            <div class="insight-item">
+              <div class="insight-icon">🧱</div>
+              <div class="insight-text"><strong>Key Resistance:</strong> ₹1,050–₹1,060 zone (prior Feb consolidation area). A clean breakout above ₹1,060 targets ₹1,080 and ₹1,100.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Volume Analysis -->
+        <div class="glass-card" style="padding:24px;">
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:20px;">📦 Volume Analysis (Relative)</h3>
+          <div style="margin-bottom:24px;">
+            <div class="vol-row"><span class="vol-label">Feb 13</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb1" style="width:0; background:var(--green);">23.81M</div></div></div>
+            <div class="vol-row"><span class="vol-label">Feb 12</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb2" style="width:0; background:var(--green);">18.5M</div></div></div>
+            <div class="vol-row"><span class="vol-label">Feb 11</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb3" style="width:0; background:#6b7280;">12.4M</div></div></div>
+            <div class="vol-row"><span class="vol-label">Feb 10</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb4" style="width:0; background:var(--red);">9.8M</div></div></div>
+            <div class="vol-row"><span class="vol-label">Feb 7</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb5" style="width:0; background:var(--green);">16.2M</div></div></div>
+            <div class="vol-row"><span class="vol-label">Feb 6</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb6" style="width:0; background:var(--red);">10.1M</div></div></div>
+            <div class="vol-row"><span class="vol-label">20d Avg</span><div class="vol-bar-wrap"><div class="vol-bar" id="vb7" style="width:0; background:rgba(255,255,255,0.25);">13.5M</div></div></div>
+          </div>
+
+          <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">🏁 Trade Setup</h3>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(0,212,170,0.08); border-radius:8px; border:1px solid rgba(0,212,170,0.2);">
+              <span style="font-size:13px; color:var(--text-secondary);">📌 Entry Zone</span>
+              <span style="font-family:var(--mono); font-weight:700; color:var(--green);">₹993 – ₹1,010</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,77,109,0.08); border-radius:8px; border:1px solid rgba(255,77,109,0.2);">
+              <span style="font-size:13px; color:var(--text-secondary);">🛡 Stop Loss</span>
+              <span style="font-family:var(--mono); font-weight:700; color:var(--red);">₹960 (below EMA13)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(168,85,247,0.08); border-radius:8px; border:1px solid rgba(168,85,247,0.2);">
+              <span style="font-size:13px; color:var(--text-secondary);">🎯 Target 1</span>
+              <span style="font-family:var(--mono); font-weight:700; color:var(--purple);">₹1,060</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(246,201,14,0.08); border-radius:8px; border:1px solid rgba(246,201,14,0.2);">
+              <span style="font-size:13px; color:var(--text-secondary);">🎯 Target 2</span>
+              <span style="font-family:var(--mono); font-weight:700; color:var(--yellow);">₹1,100</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(59,130,246,0.08); border-radius:8px; border:1px solid rgba(59,130,246,0.2);">
+              <span style="font-size:13px; color:var(--text-secondary);">⚖ Risk:Reward</span>
+              <span style="font-family:var(--mono); font-weight:700; color:#3b82f6;">1 : 2.4</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Chart -->
+    <div class="tab-content" id="tab-chart">
+      <div class="glass-card" style="padding:24px;">
+        <div class="chart-section">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
+            <div class="chart-title">BAJFINANCE — EMA 5 / 13 / 26 Chart (Simulated from Screenshot Data)</div>
+            <div class="ema-legend">
+              <div class="legend-item"><div class="legend-line" style="background:#00d4aa;"></div><span style="color:#00d4aa; font-size:12px;">EMA 5</span></div>
+              <div class="legend-item"><div class="legend-line" style="background:#f6c90e;"></div><span style="color:#f6c90e; font-size:12px;">EMA 13</span></div>
+              <div class="legend-item"><div class="legend-line" style="background:#a855f7;"></div><span style="color:#a855f7; font-size:12px;">EMA 26</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#00d4aa;"></div><span style="font-size:12px; color:var(--text-muted);">BUY</span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:#ff4d6d;"></div><span style="font-size:12px; color:var(--text-muted);">SELL</span></div>
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="emaChart" height="420"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-section" style="margin-top:20px">
+          <div class="chart-title">Volume Histogram</div>
+          <div class="canvas-wrap">
+            <canvas id="volChart" height="100"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Levels -->
+    <div class="tab-content" id="tab-levels">
+      <div class="glass-card" style="padding:24px;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:20px;">🎯 Key Price Levels — BAJFINANCE</h3>
+        <div class="table-wrapper">
+          <table class="levels-table">
+            <thead><tr><th>Level</th><th>Price (₹)</th><th>Type</th><th>Significance</th></tr></thead>
+            <tbody>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--red)">Strong Resistance</td><td style="font-family:var(--mono); font-weight:700;">₹1,120</td><td><span class="lvl-tag lvl-res">Resistance</span></td><td style="font-size:13px; color:var(--text-secondary);">Oct 2025 high — major swing top, potential zone for profit-booking</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--red)">Resistance 2</td><td style="font-family:var(--mono); font-weight:700;">₹1,100</td><td><span class="lvl-tag lvl-res">Resistance</span></td><td style="font-size:13px; color:var(--text-secondary);">Previous consolidation zone. Target 2 — partial profits here</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--red)">Resistance 1</td><td style="font-family:var(--mono); font-weight:700;">₹1,060</td><td><span class="lvl-tag lvl-res">Resistance</span></td><td style="font-size:13px; color:var(--text-secondary);">Feb 3–5 consolidation highs — first hurdle. Target 1</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--yellow)">Current Price</td><td style="font-family:var(--mono); font-weight:800; color:var(--green);">₹1,031 ◀</td><td><span class="lvl-tag lvl-crt">Current</span></td><td style="font-size:13px; color:var(--text-secondary);">Live price — above EMA5 (₹993) and EMA13 (₹972). Bullish posture.</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--green)">EMA 5</td><td style="font-family:var(--mono); font-weight:700;">₹993.75</td><td><span class="lvl-tag lvl-sup">Support</span></td><td style="font-size:13px; color:var(--text-secondary);">Dynamic short-term support. Pullbacks to this level are buying opportunities.</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--green)">EMA 13</td><td style="font-family:var(--mono); font-weight:700;">₹972.77</td><td><span class="lvl-tag lvl-sup">Support</span></td><td style="font-size:13px; color:var(--text-secondary);">Key trend support. <strong>Stop-loss zone</strong> — sustained close below invalidates the bullish setup.</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--green)">Support 2</td><td style="font-family:var(--mono); font-weight:700;">₹945</td><td><span class="lvl-tag lvl-sup">Support</span></td><td style="font-size:13px; color:var(--text-secondary);">Dec 2025 consolidation base — strong demand zone if retest happens</td></tr>
+              <tr><td style="font-family:var(--mono); font-weight:600; color:var(--green)">Strong Support</td><td style="font-family:var(--mono); font-weight:700;">₹835</td><td><span class="lvl-tag lvl-sup">Support</span></td><td style="font-size:13px; color:var(--text-secondary);">Jan 2026 swing low — major base where the V-reversal began</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Pine Script -->
+    <div class="tab-content" id="tab-indicator">
+      <div class="glass-card" style="padding:24px;">
+        <div class="pine-header">
+          <h3 style="font-size:16px; font-weight:700;">📋 EMA Triple Signal — Pine Script v5</h3>
+          <button class="copy-btn" onclick="copyPine()">📋 Copy Code</button>
+        </div>
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:20px; line-height:1.7;">
+          Add this to TradingView: <strong>Pine Editor → New → Paste → Add to Chart</strong>.<br/>
+          This indicator adds BUY/SELL signals on top of EMA 5/13/26, exactly based on the BAJFINANCE pattern you shared.
+        </p>
+
+        <!-- Signal explanations -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:24px;">
+          <div style="padding:14px; background:rgba(0,212,170,0.06); border:1px solid rgba(0,212,170,0.2); border-radius:var(--radius-sm);">
+            <div style="font-size:13px; font-weight:700; color:var(--green); margin-bottom:6px;">🟢 BUY Signal</div>
+            <div style="font-size:12px; color:var(--text-muted);">EMA5 crosses above EMA13 AND<br/>close price is above EMA26</div>
+          </div>
+          <div style="padding:14px; background:rgba(0,212,170,0.06); border:1px solid rgba(0,212,170,0.2); border-radius:var(--radius-sm);">
+            <div style="font-size:13px; font-weight:700; color:#22d3ee; margin-bottom:6px;">💎 STRONG BUY</div>
+            <div style="font-size:12px; color:var(--text-muted);">BUY conditions + volume is 1.5×<br/>above the 20-day average</div>
+          </div>
+          <div style="padding:14px; background:rgba(255,77,109,0.06); border:1px solid rgba(255,77,109,0.2); border-radius:var(--radius-sm);">
+            <div style="font-size:13px; font-weight:700; color:var(--red); margin-bottom:6px;">🔴 SELL Signal</div>
+            <div style="font-size:12px; color:var(--text-muted);">EMA5 crosses below EMA13<br/>— exit or short trigger</div>
+          </div>
+          <div style="padding:14px; background:rgba(246,201,14,0.06); border:1px solid rgba(246,201,14,0.2); border-radius:var(--radius-sm);">
+            <div style="font-size:13px; font-weight:700; color:var(--yellow); margin-bottom:6px;">🟡 Zone Re-Entry</div>
+            <div style="font-size:12px; color:var(--text-muted);">Price pulls back to EMA13 while<br/>still in bullish alignment</div>
+          </div>
+        </div>
+
+        <div id="pineDisplay" class="pine-box"></div>
+      </div>
+    </div>
+
+  </div><!-- /analysis-hero -->
+
+  <script src="screener.js"></script>
+  <script>
+  // ── TAB SWITCHING ──
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    event.target.classList.add('active');
+    if (tab === 'chart') drawCharts();
+  }
+
+  // ── VOLUME BARS ANIMATION ──
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const bars = [
+        { id:'vb1', pct:100 }, { id:'vb2', pct:77 }, { id:'vb3', pct:52 },
+        { id:'vb4', pct:41 }, { id:'vb5', pct:68 }, { id:'vb6', pct:42 }, { id:'vb7', pct:57 }
+      ];
+      bars.forEach(b => {
+        document.getElementById(b.id).style.width = b.pct + '%';
+      });
+    }, 400);
+  });
+
+  // ── CHART DRAWING ──
+  function drawCharts() {
+    drawEMAChart();
+    drawVolChart();
+  }
+
+  // Simulated BAJFINANCE price data aligned with screenshot
+  const DAYS = ['Nov 10','Nov 20','Dec 05','Dec 17','Dec 23','Jan 07','Jan 20','Jan 27','Feb 03','Feb 05','Feb 10','Feb 13'];
+  const PRICES  = [1100, 1080, 1040, 1010, 990,  950,  880,  835,  870,  930,  980,  1031];
+  const EMA5S   = [1105, 1085, 1048, 1020, 996,  960,  893,  854,  860,  904,  958,  993];
+  const EMA13S  = [1095, 1078, 1055, 1032, 1012, 982,  940,  905,  890,  900,  940,  972];
+  const EMA26S  = [1080, 1062, 1045, 1030, 1018, 1005, 975,  950,  930,  910,  880,  506];
+  const VOLS    = [15, 12, 18, 14, 10, 13, 16, 18, 14, 16, 18, 23];
+  const BUY_IDX = 11;  // Feb 13 — crossover day
+
+  function drawEMAChart() {
+    const canvas = document.getElementById('emaChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = 420 * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const W = canvas.offsetWidth, H = 420;
+
+    const all = [...PRICES, ...EMA5S, ...EMA13S];
+    const minP = Math.min(...all) - 30;
+    const maxP = Math.max(...all) + 30;
+
+    const PAD = { top:20, right:60, bottom:40, left:60 };
+    const cw = W - PAD.left - PAD.right;
+    const ch = H - PAD.top  - PAD.bottom;
+
+    const xPos = i => PAD.left + (i / (DAYS.length-1)) * cw;
+    const yPos = v => PAD.top + ch - ((v - minP) / (maxP - minP)) * ch;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    for (let i=0; i<=4; i++) {
+      const y = PAD.top + (i/4)*ch;
+      const price = maxP - (i/4)*(maxP-minP);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(W-PAD.right, y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px JetBrains Mono,monospace'; ctx.textAlign='right';
+      ctx.fillText('₹'+Math.round(price), PAD.left-8, y+4);
+    }
+
+    // Vertical day labels
+    DAYS.forEach((d, i) => {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='center';
+      ctx.fillText(d, xPos(i), H-PAD.bottom+16);
+    });
+
+    // --- EMA26 ribbon fill (very subtle) ---
+    ctx.beginPath();
+    EMA5S.forEach((v,i)=> i===0 ? ctx.moveTo(xPos(i),yPos(v)) : ctx.lineTo(xPos(i),yPos(v)));
+    EMA13S.slice().reverse().forEach((v,i)=> ctx.lineTo(xPos(EMA13S.length-1-i), yPos(v)));
+    ctx.closePath();
+    ctx.fillStyle = EMA5S[EMA5S.length-1] > EMA13S[EMA13S.length-1]
+      ? 'rgba(0,212,170,0.07)' : 'rgba(255,77,109,0.07)';
+    ctx.fill();
+
+    // Draw EMA26 (purple)
+    drawLine(ctx, EMA26S, xPos, yPos, '#a855f7', 2);
+    // Draw EMA13 (yellow)
+    drawLine(ctx, EMA13S, xPos, yPos, '#f6c90e', 2);
+    // Draw EMA5 (green)
+    drawLine(ctx, EMA5S,  xPos, yPos, '#00d4aa', 2.5);
+
+    // Draw price candles (simplified bars)
+    const barW = (cw / DAYS.length) * 0.5;
+    PRICES.forEach((p, i) => {
+      const isUp = i===0 || p >= PRICES[i-1];
+      ctx.fillStyle = isUp ? 'rgba(0,212,170,0.8)' : 'rgba(255,77,109,0.8)';
+      const py = yPos(p);
+      const ph = isUp
+        ? yPos(PRICES[i-1]||p*0.99) - py
+        : py - yPos(PRICES[i-1]||p*1.01);
+      ctx.fillRect(xPos(i) - barW/2, Math.min(py, yPos(PRICES[i-1]||p)), barW, Math.abs(ph)||3);
+    });
+
+    // Price line
+    drawLine(ctx, PRICES, xPos, yPos, 'rgba(255,255,255,0.6)', 1.5);
+
+    // BUY marker
+    const bx = xPos(BUY_IDX), by = yPos(PRICES[BUY_IDX]) + 20;
+    ctx.beginPath();
+    ctx.moveTo(bx, by+12); ctx.lineTo(bx-7, by+22); ctx.lineTo(bx+7, by+22);
+    ctx.closePath(); ctx.fillStyle='#00d4aa'; ctx.fill();
+    ctx.font='bold 11px Inter,sans-serif'; ctx.textAlign='center'; ctx.fillStyle='white';
+    ctx.fillText('BUY', bx, by+33);
+
+    // Legend box
+    ctx.font='12px Inter,sans-serif'; ctx.textAlign='left';
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(W-PAD.right-120, PAD.top, 115, 75);
+    [['EMA 5 — ₹993','#00d4aa'], ['EMA 13 — ₹972','#f6c90e'], ['Close — ₹1031','rgba(255,255,255,0.6)']].forEach(([t,c],i)=>{
+      ctx.fillStyle=c; ctx.fillRect(W-PAD.right-114, PAD.top+10+i*22, 14, 3);
+      ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.fillText(t, W-PAD.right-96, PAD.top+16+i*22);
+    });
+  }
+
+  function drawLine(ctx, data, xFn, yFn, color, width) {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.beginPath();
+    data.forEach((v, i) => i===0 ? ctx.moveTo(xFn(i), yFn(v)) : ctx.lineTo(xFn(i), yFn(v)));
+    ctx.stroke();
+  }
+
+  function drawVolChart() {
+    const canvas = document.getElementById('volChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width  = canvas.offsetWidth * window.devicePixelRatio;
+    canvas.height = 100 * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const W = canvas.offsetWidth, H = 100;
+
+    const maxV = Math.max(...VOLS);
+    const barW = W / VOLS.length * 0.7;
+
+    VOLS.forEach((v, i) => {
+      const isUp = i===0 || PRICES[i] >= PRICES[i-1];
+      const x = (i / VOLS.length) * W + barW * 0.2;
+      const bh = (v / maxV) * (H - 20);
+      ctx.fillStyle = isUp ? 'rgba(0,212,170,0.6)' : 'rgba(255,77,109,0.6)';
+      ctx.fillRect(x, H - bh - 5, barW, bh);
+    });
+
+    // Draw average line
+    const avgV = VOLS.reduce((a,b)=>a+b,0)/VOLS.length;
+    const avgY = H - (avgV/maxV)*(H-20) - 5;
+    ctx.strokeStyle='rgba(246,201,14,0.6)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(W, avgY); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='rgba(246,201,14,0.8)'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='left';
+    ctx.fillText('Avg', 4, avgY-3);
+  }
+
+  // ── PINE SCRIPT DISPLAY ──
+  const pineCode = `//@version=5
+indicator("EMA Triple Signal [5-13-26]", shorttitle="EMA·Signal", overlay=true)
+
+// ─── INPUTS ───
+len1 = input.int(5,  "EMA 1")
+len2 = input.int(13, "EMA 2")
+len3 = input.int(26, "EMA 3")
+src  = input.source(close, "Source")
+volMult = input.float(1.5, "Volume Multiplier")
+
+// ─── EMAs ───
+ema5  = ta.ema(src, len1)
+ema13 = ta.ema(src, len2)
+ema26 = ta.ema(src, len3)
+
+// ─── SIGNALS ───
+bullCross  = ta.crossover(ema5, ema13)
+bearCross  = ta.crossunder(ema5, ema13)
+bullAlign  = ema5 > ema13 and ema13 > ema26
+avgVol     = ta.sma(volume, 20)
+volSurge   = volume > avgVol * volMult
+
+buySignal  = bullCross and close > ema26   // BUY: crossover + above EMA26
+strongBuy  = buySignal and volSurge        // STRONG BUY: + volume
+sellSignal = bearCross                     // SELL: EMA5 drops below EMA13
+
+// ─── PLOT EMAs ───
+plot(ema5,  "EMA 5",  color.green,  2)
+plot(ema13, "EMA 13", color.yellow, 2)
+plot(ema26, "EMA 26", color.purple, 2)
+
+// ─── BACKGROUND ───
+bgcolor(bullAlign ? color.new(color.green,93) :
+        ema5<ema13 and ema13<ema26 ? color.new(color.red,93) : na)
+
+// ─── EMA RIBBON ───
+p5  = plot(ema5,  display=display.none)
+p13 = plot(ema13, display=display.none)
+fill(p5, p13, ema5>ema13 ? color.new(color.green,85) : color.new(color.red,85))
+
+// ─── BUY / SELL SHAPES ───
+plotshape(buySignal and not strongBuy,
+  style=shape.triangleup, location=location.belowbar,
+  color=color.lime, size=size.normal, text="BUY")
+
+plotshape(strongBuy,
+  style=shape.triangleup, location=location.belowbar,
+  color=color.aqua, size=size.large, text="💎 STRONG")
+
+plotshape(sellSignal,
+  style=shape.triangledown, location=location.abovebar,
+  color=color.red, size=size.normal, text="SELL")
+
+// ─── ALERTS ───
+alertcondition(buySignal,  "BUY",       "🟢 EMA BUY — crossover confirmed")
+alertcondition(strongBuy,  "STRONG BUY","💎 STRONG BUY — volume surge + crossover")
+alertcondition(sellSignal, "SELL",      "🔴 EMA SELL — crossover down")`;
+
+  document.getElementById('pineDisplay').textContent = pineCode;
+
+  function copyPine() {
+    navigator.clipboard.writeText(pineCode).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy Code', 2000);
+    });
+  }
+
+  // Init particles
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof initParticles === 'function') initParticles();
+  });
+  </script>
+</body>
+</html>
