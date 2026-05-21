@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────
 const CONFIG = {
   ema1: 5, ema2: 13, ema3: 26,
-  corsProxy: "https://api.allorigins.win/raw?url=",
+  corsProxy: "https://corsproxy.io/?",
   yahooBase:  "https://query1.finance.yahoo.com/v8/finance/chart/",
   period:    "2y",
   interval:  "1d",

@@ -191,7 +191,7 @@
 
   // ── CONFIG (same as screener.js) ──
   const CFG = {
-    cors:    "https://api.allorigins.win/raw?url=",
+    cors:    "https://corsproxy.io/?",
     yBase:   "https://query1.finance.yahoo.com/v8/finance/chart/",
     period:  "2y", interval:"1d", scanBars:30,
   };
@@ -750,7 +750,7 @@
   }
 
   async function fetchNews(sym) {
-    const proxy = "https://api.allorigins.win/raw?url=";
+    const proxy = "https://corsproxy.io/?";
     const url   = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(sym)}&newsCount=15&quotesCount=0&enableFuzzyQuery=false`;
     const res   = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) });
     if (!res.ok) throw new Error("HTTP " + res.status);
